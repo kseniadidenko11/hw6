@@ -33,7 +33,7 @@
 # <a id='SU' name="SU"></a>
 # ## [Set up](#P0)
 
-# In[ ]:
+# In[1]:
 
 
 #get_ipython().system('sudo apt-get install build-essential swig')
@@ -49,7 +49,7 @@
 
 # Packages import
 
-# In[ ]:
+# In[2]:
 
 
 import numpy as np
@@ -82,7 +82,7 @@ import matplotlib.pyplot as plt
 
 # Configure logging.
 
-# In[ ]:
+# In[3]:
 
 
 import datetime
@@ -116,13 +116,13 @@ logging.config.dictConfig(log_config)
 
 # Mount google drive and apply settings
 
-# In[ ]:
+# In[6]:
 
 
 #from google.colab import drive
 #drive.mount('/content/drive', force_remount=True)
 data_path = "/content/drive/MyDrive/Introduction2DataScience/exercises/hw6/data/raw/"
-model_path = "/content/drive/MyDrive/Introduction2DataScience/exercises/hw6/models"
+model_path = "/content/drive/MyDrive/Introduction2DataScience/exercises/hw6/models/"
 set_config(display='diagram')
 
 
@@ -176,15 +176,16 @@ set_config(display='diagram')
 
 # **Load the csv file as a DataFrame using Pandas**
 
-# In[ ]:
+# In[7]:
 
 
 df = pd.read_csv(f'{data_path}pirate_data.csv', delimiter=",", index_col=0)
+logging.info(f'data loaded from={data_path}pirate_data.csv')
 
 
 # **Perform the necessary type transformations**
 
-# In[ ]:
+# In[8]:
 
 
 df['DATETIME (LOCAL)'] = pd.to_datetime(df['DATETIME (LOCAL)'])
@@ -193,13 +194,13 @@ df['DATE (LT)'] = pd.to_datetime(df['DATE (LT)'])
 df['DATE (UTC)'] = pd.to_datetime(df['DATE (UTC)'])
 
 
-# In[ ]:
+# In[9]:
 
 
 for column in df.select_dtypes(include=['object']):
-    print(f'Column {column} has {len(df[column].unique())} categories: {df[column].unique()}\n')
+    #print(f'Column {column} has {len(df[column].unique())} categories: {df[column].unique()}\n')
     df[column] = df[column].astype("category")
-df.dtypes
+#df.dtypes
 
 
 # **Perform test/train split here**
@@ -208,7 +209,7 @@ df.dtypes
 
 # We want to keep the same proportion, so we will use 'stratify' parameter for splitting.
 
-# In[ ]:
+# In[10]:
 
 
 #y = df['ATTACK SUCCESS']
@@ -224,82 +225,34 @@ logging.info(f'train test split with test_size={test_size} and random state={ran
 
 # ### Missing Values and Duplicates
 
-# In[ ]:
+# In[11]:
 
 
 X_train['VESSEL ACTIVITY LOCATION'] = X_train['VESSEL ACTIVITY LOCATION'].cat.add_categories('UNKNOWN')
 X_train['VESSEL ACTIVITY LOCATION'].fillna('UNKNOWN', inplace =True) 
 X_train['VESSEL TYPE'].fillna('UNKNOWN', inplace =True) 
 
-
-# ### Relationship between features (correlations)
-# 
-# **What are the relationships between features (make a pairplot)? Are they linear?**
-
-# In[ ]:
-
-
-fig = px.parallel_categories(X_train[['REGION', 'COUNTRY', 'INCIDENT TYPE', 
-                                      'VESSEL TYPE', 'VESSEL ACTIVITY LOCATION', 
-                                      'TIME OF DAY']], color=y_train)
-fig.show()
-
-
-# ### Feature Creation and Combination
-# 
-# 
-
-# - **What kind of Scaling should we use/try?**
-# - **Should we transform some features?**
-# - **Should we drop some features?**
-# - **Should we combine features?**
-
-# In[ ]:
-
-
 X_train_copy = X_train.copy()
 X_train_copy = X_train_copy.drop(['INCIDENT TYPE', "ATTACKS", "DATETIME (LOCAL)", "DATETIME (UTC)", "DATE (LT)", "TIMEZONE"], axis=1)
 
 X_test_copy = X_test.copy()
 X_test_copy = X_test.drop(['INCIDENT TYPE', "ATTACKS", "DATETIME (LOCAL)", "DATETIME (UTC)", "DATE (LT)", "TIMEZONE"], axis=1)
-categorical_columns = ['REGION', 'COUNTRY', 'VESSEL TYPE', 
-                       'VESSEL ACTIVITY LOCATION', 'TIME OF DAY']
-for column in categorical_columns:
-    tempdf = pd.get_dummies(X_train_copy[column], prefix=column)
-    X_train_copy = pd.merge(left=X_train_copy, right=tempdf, left_index=True, right_index=True,)
-    X_train_copy = X_train_copy.drop(columns=column)
-    tempdf = pd.get_dummies(X_test_copy[column], prefix=column)
-    X_test_copy = pd.merge(left=X_test_copy, right=tempdf, left_index=True, right_index=True,)
-    X_test_copy = X_test_copy.drop(columns=column)
 
+
+# In[12]:
+
+
+# leave the day of year, we can also leave a year as a separate column
 X_train_copy["DATE (UTC)"] = X_train_copy["DATE (UTC)"].dt.dayofyear
 X_test_copy["DATE (UTC)"] = X_test_copy["DATE (UTC)"].dt.dayofyear
 
-X_train_copy
-
-
-# We can delete the timezone column as latitude and longitude cover that information. We also need to delete the incident type column as it leaks data. Dates can be converted to day-of-the-year. Finally, we need to covert all the categorical columns into 1-hot encoded columns so they can be processed by the model.
-
-# ### Conclusion: Experimental setup and  Possible Feature Transformations
-
-# Let's wrap up on the exploratory data analysis and conclude. We should now be able to answer the following questions:
-# 
-# - **What would be our baseline for the analysis?**
-# - **What kind of modelling setup should we use/try?**
-# - **What kind of Scaling should we use/try?**
-# - **If outliers, what kind of treatment should we apply?**
-# - **Should we transform some features?**
-# - **Should we drop some features?**
-# - **Should we combine features?**
-
-# The baseline for our analysis would be about 64%, as this would be our result if we always guess that attacks are successful. Accordingly, our model must do better than that. For modeling we will first try logistic regression, and then also try autoML. We can just use the standard scaler, as we don't have to many numeric variables and is should work fine for the longitude and latitude. There are no outliers so we can skip that, but we do need to transform the data. Specifically, we need to convert the categorical columns with a one-hot encoder so that they can be used by the model. We will also convert the date column into a day-of-the-year column as that is the truely relevant information when it comes to the date. We will drop a number of the features. Some, like the timezones, are because they are duplicates. Others, like the Incident Type have to be dropped because they leak data which would make the model useless. We don't need to combine any data.
 
 # <a id='P2' name="P2"></a>
 # ## [Modelling](#P0)
 
 # ### Pipeline Definition
 
-# In[ ]:
+# In[13]:
 
 
 from sklearn.preprocessing import StandardScaler, OrdinalEncoder, OneHotEncoder
@@ -307,56 +260,52 @@ from sklearn.compose import ColumnTransformer
 from sklearn.linear_model import LogisticRegression
 
 
-# In[ ]:
+# In[14]:
 
 
-X_train = X_train.copy()
-X_train = X_train.drop(['INCIDENT TYPE', "ATTACKS", "DATETIME (LOCAL)", "DATETIME (UTC)", "DATE (LT)", "TIMEZONE"], axis=1)
 categorical_columns = ['REGION', 'COUNTRY', 'VESSEL TYPE', 
                        'VESSEL ACTIVITY LOCATION', 'TIME OF DAY']
 
 
-# In[ ]:
+# In[15]:
 
 
-ohe_variables = ['REGION', 'COUNTRY', 'VESSEL TYPE', 'VESSEL ACTIVITY LOCATION', 'TIME OF DAY']
+ohe_variables = ['REGION', 'COUNTRY', 'VESSEL TYPE', 'VESSEL ACTIVITY LOCATION', 'TIME OF DAY', 'MAERSK?']
 
 oe_variables = []
-#categories=['Month-to-month', 'One year', 'Two year']
-
-num_variables = ["LAT", "LONG"]
+num_variables = ["LAT", "LONG", "DATE (UTC)"]
 
 
-# In[ ]:
+# In[16]:
 
 
 numeric_transformer = Pipeline(steps=[('imputer', SimpleImputer(strategy='constant', fill_value=0)),
                                       ('scaler', StandardScaler())])
 
 
-# In[ ]:
+# In[17]:
 
 
 ohe_transformer = OneHotEncoder(handle_unknown='ignore')
 
 
-# In[ ]:
+# In[18]:
 
 
 oe_transformer = OrdinalEncoder(categories=[['1', '0'],])
 
 
-# In[ ]:
+# In[19]:
 
 
 preprocessor = ColumnTransformer(
     transformers=[
-        ('num', numeric_transformer, num_variables),
+       ('num', numeric_transformer, num_variables),
         ('ohe', ohe_transformer, ohe_variables),
         ('oe', oe_transformer, oe_variables)])
 
 
-# In[ ]:
+# In[20]:
 
 
 from sklearn.pipeline import Pipeline
@@ -364,70 +313,127 @@ classification_model = Pipeline(steps=[('preprocessor', preprocessor),
                                        ('classifier', LogisticRegression())])
 
 
-# In[ ]:
+# In[21]:
 
 
 classification_model
 
 
-# In[ ]:
+# In[22]:
 
 
-cross_val_score(classification_model, X_train, y_train)
+cross_val_score(classification_model, X_train_copy, y_train)
+
+
+# In[23]:
+
+
+classification_model.fit(X_train_copy, y_train)
 
 
 # ### Model Training
 
-# In[ ]:
+# In[24]:
+
+
+ohe_variables_encoded = classification_model['preprocessor'].transformers_[1][1].get_feature_names(ohe_variables)
+
+
+# In[25]:
+
+
+col_names = num_variables.copy()
+col_names.extend(ohe_variables_encoded)
+col_names.extend(oe_variables)
+
+
+# In[26]:
+
+
+logging.info(f'Number of columns in encoded data: {len(col_names)}')
+
+
+# In[27]:
+
+
+X_train_encoded = pd.DataFrame(classification_model['preprocessor'].transform(X_train_copy).todense(), columns=col_names)
+
+
+# In[28]:
 
 
 y_train_encoded = y_train.astype(float)
 
 
-# In[ ]:
+# In[29]:
 
 
-total_time = 300
+total_time = 600
 per_run_time_limit = 30
 
 
-# In[ ]:
+# In[32]:
 
 
 import autosklearn.classification
 automl = autosklearn.classification.AutoSklearnClassifier(
     time_left_for_this_task=total_time,
     per_run_time_limit=per_run_time_limit,
+    logging_config=log_config
 )
-automl.fit(X_train_copy, y_train_encoded)
+automl.fit(X_train_encoded, y_train_encoded)
 
 
-# In[ ]:
+# In[34]:
 
 
 logging.info(f'Ran autosklearn classifier for a total time of {total_time} seconds, with a maximum of {per_run_time_limit} seconds per model run')
 
 
-# In[ ]:
+# In[35]:
 
 
 dump(automl, f'{model_path}model{timesstr}.pkl')
 
 
-# In[ ]:
+# logging.info(f'Saved regressor model at {model_path}model{timesstr}.pkl ')
+
+# In[36]:
 
 
-logging.info(f'Saved regressor model at {model_path}model{timesstr}.pkl ')
+dump(preprocessor, f'{model_path}preprocessor_model{timesstr}.pkl')
 
 
-# In[ ]:
+# In[37]:
+
+
+logging.info(f'Saved preprocessor at {model_path}preprocessor_model{timesstr}.pkl ')
+
+
+# In[38]:
+
+
+import csv 
+
+with open(f'{model_path}column_names_model{timesstr}.csv', 'w') as f: 
+    write = csv.writer(f) 
+    write.writerow(col_names) 
+
+
+# In[39]:
+
+
+logging.info(f'Saved column names at {model_path}column_names_model{timesstr}.pkl ')
+
+
+# In[40]:
 
 
 logging.info(f'autosklearn model statistics:')
 logging.info(automl.sprint_statistics())
 
 
-# In[ ]:
+# In[41]:
 
 
 #profiler_data= PipelineProfiler.import_autosklearn(automl)
@@ -436,72 +442,57 @@ logging.info(automl.sprint_statistics())
 
 # ### Model Evaluation
 
-# In[ ]:
+# In[42]:
 
 
-for column in X_train_copy.columns:
-  if not column in X_test_copy.columns:
-    loc = X_train_copy.columns.get_loc(column)
-    X_test_copy.insert(loc, column, 0) 
-    print(f'Column {column} added')
+X_test_encoded = pd.DataFrame(classification_model['preprocessor'].transform(X_test_copy).todense(), columns=col_names)
 
 
-# In[ ]:
+# In[43]:
 
 
-for column in X_test_copy.columns:
-  if not column in X_train_copy.columns:
-    print(f'Column {column} added')
+y_pred = automl.predict(X_test_encoded)
 
 
-# In[ ]:
+# In[44]:
 
 
+#test1=pd.DataFrame([[139,	'SOUTH EAST ASIA',	'PHILIPPINES',	'PRODUCT TANKER',	0,	'ANCHORAGE',	13.733333,	121.038333,	'NIGHT']],
+#               columns=['DATE (UTC)',	'REGION',	'COUNTRY',	'VESSEL TYPE',	'MAERSK?',	'VESSEL ACTIVITY LOCATION',	
+#             'LAT',	'LONG',	'TIME OF DAY'])
+#test1_encoded = pd.DataFrame(preprocessor.transform(test1).todense(), columns=col_names)
+#answer = automl.predict(test1_encoded)
+#list(answer)[0]
 
 
-
-# In[ ]:
-
+# In[45]:
 
 
+logging.info(f"Mean Squared Error is {mean_squared_error(y_test, y_pred)}, \n R2 score is {automl.score(X_test_encoded, y_test)}")
 
 
-# In[ ]:
+# In[46]:
 
 
-y_pred = automl.predict(X_test_copy)
-
-
-# In[ ]:
-
-
-logging.info(f"Mean Squared Error is {mean_squared_error(y_test, y_pred)}, \n R2 score is {automl.score(X_test_copy, y_test)}")
-
-
-# In[ ]:
-
-
-print(f"Mean Squared Error is {mean_squared_error(y_test, y_pred)}, \n R2 score is {automl.score(X_test_copy, y_test)}")
+print(f"Mean Squared Error is {mean_squared_error(y_test, y_pred)}, \n R2 score is {automl.score(X_test_encoded, y_test)}")
 
 
 # we can also plot the y_test vs y_pred scatter:
 
-# In[ ]:
-
+# In[47]:
 
 
 actual_vs_predicted = pd.DataFrame({'Actual': y_test, 'Predicted': y_pred})
-actual_vs_predicted
 #df = pd.DataFrame(np.concatenate((X_test_copy, y_test.to_numpy().reshape(-1,1), y_pred.reshape(-1,1)),  axis=1))
 
 
-# In[ ]:
+# In[48]:
 
 
 df = pd.DataFrame(np.concatenate((X_test_copy, y_test.to_numpy().reshape(-1,1), y_pred.reshape(-1,1)),  axis=1))
 
 
-# In[ ]:
+# In[49]:
 
 
 cols = list(X_test_copy)
@@ -509,20 +500,20 @@ cols.append('True Target')
 cols.append('Predicted Target')
 
 
-# In[ ]:
+# In[50]:
 
 
 df.columns = cols
 
 
-# In[ ]:
+# In[51]:
 
 
 fig = px.scatter(df, x='Predicted Target', y='True Target')
 fig.write_html(f"{model_path}residualfig_{timesstr}.html")
 
 
-# In[ ]:
+# In[52]:
 
 
 logging.info(f"Figure of residuals saved as {model_path}residualfig_{timesstr}.html")
@@ -530,24 +521,24 @@ logging.info(f"Figure of residuals saved as {model_path}residualfig_{timesstr}.h
 
 # ### Model Explainability
 
-# In[ ]:
+# In[53]:
 
 
-explainer = shap.KernelExplainer(model = automl.predict, data = X_test_copy.iloc[:50, :], link = "identity")
+explainer = shap.KernelExplainer(model = automl.predict, data = X_test_encoded.iloc[:50, :], link = "identity")
 
 
-# In[ ]:
+# In[54]:
 
 
 # Set the index of the specific example to explain
 X_idx = 0
-shap_value_single = explainer.shap_values(X = X_test_copy.iloc[X_idx:X_idx+1,:], nsamples = 100)
-X_test_copy.iloc[X_idx:X_idx+1,:]
+shap_value_single = explainer.shap_values(X = X_test_encoded.iloc[X_idx:X_idx+1,:], nsamples = 100)
+X_test_encoded.iloc[X_idx:X_idx+1,:]
 # print the JS visualization code to the notebook
 shap.initjs()
 shap.force_plot(base_value = explainer.expected_value,
                 shap_values = shap_value_single,
-                features = X_test_copy.iloc[X_idx:X_idx+1,:], 
+                features = X_test_encoded.iloc[X_idx:X_idx+1,:], 
                 show=False,
                 matplotlib=True
                 )
@@ -555,19 +546,19 @@ plt.savefig(f"{model_path}shap_example_{timesstr}.png")
 logging.info(f"Shapley example saved as {model_path}shap_example_{timesstr}.png")
 
 
-# In[ ]:
+# In[60]:
 
 
-shap_values = explainer.shap_values(X = X_test_copy.iloc[0:50,:], nsamples = 100)
+shap_values = explainer.shap_values(X = X_test_encoded.iloc[0:50,:], nsamples = 100)
 
 
-# In[ ]:
+# In[59]:
 
 
 # print the JS visualization code to the notebook
 shap.initjs()
 fig = shap.summary_plot(shap_values = shap_values,
-                  features = X_test_copy.iloc[0:50,:],
+                  features = X_test_encoded.iloc[0:50,:],
                   show=False)
 plt.savefig(f"{model_path}shap_summary_{timesstr}.png")
 logging.info(f"Shapley summary saved as {model_path}shap_summary_{timesstr}.png")
